@@ -1,0 +1,11 @@
+message(STATUS "===========src module============")
+
+find_package( OpenCV REQUIRED )
+if (NOT OpenCV_FOUND)
+    message(FATAL_ERROR "opencv Not Found!")
+else()
+    message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
+    message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
+endif (NOT OpenCV_FOUND)
+add_subdirectory(libmtcnn)
+add_subdirectory(main)

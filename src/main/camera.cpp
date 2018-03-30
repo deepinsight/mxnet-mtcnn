@@ -29,7 +29,9 @@
 
 int main(int argc, char * argv[])
 {
-    const char * type = "mxnet";
+    std::string type = "mxnet";
+    std::string model_dir = "../models";
+    
     double ftick, etick;
     double ticksPerUs;
 
@@ -38,7 +40,10 @@ int main(int argc, char * argv[])
     while ((res = getopt(argc, argv, "t:")) != -1) {
         switch (res) {
             case 't':
-                type = optarg;
+                type = std::string(optarg);
+                break;
+            case 'm':
+                model_dir = std::string(optarg);
                 break;
             default:
                 break;
@@ -52,14 +57,13 @@ int main(int argc, char * argv[])
         return 1;
     }
 
-    std::string model_dir = "../models";
 
-    mtcnn * p_mtcnn = mtcnn_factory::create_detector(type);
+    Mtcnn * p_mtcnn = MtcnnFactory::CreateDetector(type);
 
     if (p_mtcnn == nullptr) {
         std::cerr << type << " is not supported" << std::endl;
         std::cerr << "supported types: ";
-        std::vector<std::string> type_list = mtcnn_factory::list();
+        std::vector<std::string> type_list = MtcnnFactory::ListDetectorType();
 
         for (unsigned int i = 0; i < type_list.size(); i++)
             std::cerr << " " << type_list[i];
@@ -71,7 +75,7 @@ int main(int argc, char * argv[])
 
     ticksPerUs = cv::getTickFrequency() / 1000000;
 
-    p_mtcnn->load_model(model_dir);
+    p_mtcnn->LoadModule(model_dir);
     cv::namedWindow(DISP_WINNANE, cv::WINDOW_AUTOSIZE);
     cv::Mat frame;
     std::vector<face_box> face_info;
@@ -85,7 +89,7 @@ int main(int argc, char * argv[])
             }
 
             ftick = cv::getCPUTickCount();
-            p_mtcnn->detect(frame, face_info);
+            p_mtcnn->Detect(frame, face_info);
             etick = cv::getCPUTickCount();
 
             for (unsigned int i = 0; i < face_info.size(); i++) {

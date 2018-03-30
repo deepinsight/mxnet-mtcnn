@@ -8,14 +8,14 @@
 #include "mxnet/c_predict_api.h"
 #include "comm_lib.hpp"
 
-class mxnet_mtcnn: public mtcnn {
+class MxNetMtcnn: public Mtcnn {
 
 	public:
-		mxnet_mtcnn():rnet_batch_bound_(10),onet_batch_bound_(10){};
+		MxNetMtcnn():rnet_batch_bound_(10),onet_batch_bound_(10){};
 
-		int load_model(const std::string& model_dir);
+		int LoadModule(const std::string& model_dir);
 
-		void detect(cv::Mat& img, std::vector<face_box>& face_list);
+		void Detect(cv::Mat& img, std::vector<face_box>& face_list);
 
         void set_batch_mode_bound(int r, int o) 
     	{
@@ -23,27 +23,26 @@ class mxnet_mtcnn: public mtcnn {
             onet_batch_bound_=o;
         }
 
-		~mxnet_mtcnn();
+		~MxNetMtcnn();
 
 	protected:
 
-		void load_PNet(int h, int w);
-		void free_PNet(void);
+		void LoadPNet(int h, int w);
+		void FreePNet(void);
+		
+        void CopyOnePatch(const cv::Mat& img,face_box&input_box,float * data_to, int width, int height);
+        PredictorHandle LoadRNet(int batch);
+        PredictorHandle LoadONet(int batch);
 
-        void copy_one_patch(const cv::Mat& img,face_box&input_box,float * data_to, int width, int height);
-        PredictorHandle load_RNet(int batch);
-        PredictorHandle load_ONet(int batch);
-
-		PredictorHandle load_mxnet_model(const std::string& param_file, const std::string& json_file, 
+		PredictorHandle LoadMxNetModule(const std::string& param_file, const std::string& json_file, 
 				int batch, int channel,int input_h, int input_w);
 
-		void run_PNet(const cv::Mat& img, scale_window& win, std::vector<face_box>& box_list);
+		void RunPNet(const cv::Mat& img, scale_window& win, std::vector<face_box>& box_list);
+        int RunPreLoadRNet(const cv::Mat& img, face_box& input_box, face_box& output_box);
+		int RunPreLoadONet(const cv::Mat& img, face_box& input_box, face_box& output_box); 
 
-        int run_preload_RNet(const cv::Mat& img, face_box& input_box, face_box& output_box);
-		int run_preload_ONet(const cv::Mat& img, face_box&input_box, face_box& output_box); 
-
-		void run_RNet(const cv::Mat& img,std::vector<face_box>& pnet_boxes, std::vector<face_box>& output_boxes);
-		void run_ONet(const cv::Mat& img,std::vector<face_box>& rnet_boxes, std::vector<face_box>& output_boxes);
+		void RunRNet(const cv::Mat& img,std::vector<face_box>& pnet_boxes, std::vector<face_box>& output_boxes);
+		void RunONet(const cv::Mat& img,std::vector<face_box>& rnet_boxes, std::vector<face_box>& output_boxes);
 
 
 	private:
@@ -52,8 +51,8 @@ class mxnet_mtcnn: public mtcnn {
 		PredictorHandle  PNet_;  //PNet_ will create and destroyed frequently
 		PredictorHandle  RNet_;
 		PredictorHandle  ONet_;
-                int rnet_batch_bound_;
-                int onet_batch_bound_;
+        int rnet_batch_bound_;
+        int onet_batch_bound_;
 
 };
 

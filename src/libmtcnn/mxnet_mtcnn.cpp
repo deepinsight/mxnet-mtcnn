@@ -23,7 +23,7 @@
 #include "mxnet_mtcnn.hpp"
 
 
-static int load_file(const std::string & fname, std::vector<char>& buf)
+static int LoadFile(const std::string & fname, std::vector<char>& buf)
 {
 	std::ifstream fs(fname, std::ios::binary | std::ios::in);
 
@@ -49,17 +49,17 @@ static int load_file(const std::string & fname, std::vector<char>& buf)
 
 
 
-int mxnet_mtcnn::load_model(const std::string &proto_model_dir)
+int MxNetMtcnn::LoadModule(const std::string &proto_model_dir)
 {
 	model_dir_=proto_model_dir;
 
 	/* Load the network. */
-	RNet_=load_RNet(1);
+	RNet_=LoadRNet(1);
 
 	if(RNet_==nullptr)
 		return -1;
 
-	ONet_=load_ONet(1);
+	ONet_=LoadONet(1);
 
 	if(ONet_==nullptr)
 		return -1;
@@ -68,37 +68,37 @@ int mxnet_mtcnn::load_model(const std::string &proto_model_dir)
 }
 
 
-mxnet_mtcnn::~mxnet_mtcnn(void)
+MxNetMtcnn::~MxNetMtcnn(void)
 {
 	MXPredFree(RNet_);
 	MXPredFree(ONet_);
 }
 
-void mxnet_mtcnn::load_PNet(int h, int w)
+void MxNetMtcnn::LoadPNet(int h, int w)
 {
 	std::string param_file= model_dir_+"/det1-0001.params";
 	std::string json_file=model_dir_+"/det1-symbol.json";
 
-	PNet_=load_mxnet_model(param_file,json_file,1,3,h,w);
+	PNet_=LoadMxNetModule(param_file,json_file,1,3,h,w);
 }
 
-void mxnet_mtcnn::free_PNet(void)
+void MxNetMtcnn::FreePNet(void)
 {
 	MXPredFree(PNet_);	
 }
 
 
-PredictorHandle mxnet_mtcnn::load_mxnet_model(const std::string& param_file, const std::string& json_file, 
+PredictorHandle MxNetMtcnn::LoadMxNetModule(const std::string& param_file, const std::string& json_file, 
 		int batch, int channel, int input_h, int input_w)
 {
 	std::vector<char> param_buffer;
 	std::vector<char> json_buffer;
 	PredictorHandle pred_hnd;
 
-	if(load_file(param_file,param_buffer)<0)
+	if(LoadFile(param_file,param_buffer)<0)
 		return nullptr;
 
-	if(load_file(json_file,json_buffer)<0)
+	if(LoadFile(json_file,json_buffer)<0)
 		return nullptr;  	
 
 	int device_type=1;
@@ -106,8 +106,12 @@ PredictorHandle mxnet_mtcnn::load_mxnet_model(const std::string& param_file, con
 	mx_uint  num_input_nodes=1;
 	const char * input_keys[1];
 	const mx_uint input_shape_indptr[] = {0, 4};
-	const mx_uint input_shape_data[] =
-	{static_cast<mx_uint>(batch), static_cast<mx_uint>(channel), static_cast<mx_uint>(input_h), static_cast<mx_uint>(input_w) };
+	const mx_uint input_shape_data[] = {
+		static_cast<mx_uint>(batch), 
+		static_cast<mx_uint>(channel), 
+		static_cast<mx_uint>(input_h), 
+		static_cast<mx_uint>(input_w)
+	};
 
 	input_keys[0]="data";
 
@@ -127,14 +131,14 @@ PredictorHandle mxnet_mtcnn::load_mxnet_model(const std::string& param_file, con
 }
 
 
-void mxnet_mtcnn::detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
+void MxNetMtcnn::Detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 {
 
-        cv::Mat img;
+    cv::Mat img;
 
-        orig_img.convertTo(img,CV_32FC3);
+    orig_img.convertTo(img,CV_32FC3);
 
-        img=(img-127.5)*0.0078125;
+    img=(img-127.5)*0.0078125;
 
 	int img_h=img.rows;
 	int img_w=img.cols;
@@ -153,7 +157,7 @@ void mxnet_mtcnn::detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 	{
 		std::vector<face_box>boxes;
 
-		run_PNet(img,win_list[i],boxes);
+		RunPNet(img,win_list[i],boxes);
 
 		total_pnet_boxes.insert(total_pnet_boxes.end(),boxes.begin(),boxes.end());
 	}
@@ -170,7 +174,7 @@ void mxnet_mtcnn::detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 	if(pnet_boxes.size()>rnet_batch_bound_)
 	{
 		//batch mode
-		run_RNet(img,pnet_boxes,total_rnet_boxes);
+		RunRNet(img,pnet_boxes,total_rnet_boxes);
 
 	}
 	else
@@ -179,7 +183,7 @@ void mxnet_mtcnn::detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 		{
 			face_box out_box;
 
-			if(run_preload_RNet(img, pnet_boxes[i],out_box)<0)
+			if(RunPreLoadRNet(img, pnet_boxes[i],out_box)<0)
 				continue;
 
 			total_rnet_boxes.push_back(out_box);
@@ -196,7 +200,7 @@ void mxnet_mtcnn::detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 
 	if(rnet_boxes.size()>onet_batch_bound_)
 	{
-		run_ONet(img,rnet_boxes, total_onet_boxes);
+		RunONet(img,rnet_boxes, total_onet_boxes);
 	}
 	else
 	{
@@ -204,7 +208,7 @@ void mxnet_mtcnn::detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 		{
 			face_box out_box;
 
-			if(run_preload_ONet(img, rnet_boxes[i],out_box)<0)
+			if(RunPreLoadONet(img, rnet_boxes[i],out_box)<0)
 				continue;
 
 			total_onet_boxes.push_back(out_box);
@@ -223,7 +227,7 @@ void mxnet_mtcnn::detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 
 }
 
-void mxnet_mtcnn::run_PNet(const cv::Mat& img, scale_window& win, std::vector<face_box>&box_list)
+void MxNetMtcnn::RunPNet(const cv::Mat& img, scale_window& win, std::vector<face_box>&box_list)
 {
 	cv::Mat  resized;
 	int scale_h=win.h;
@@ -231,7 +235,7 @@ void mxnet_mtcnn::run_PNet(const cv::Mat& img, scale_window& win, std::vector<fa
 	float scale=win.scale;
 
 
-	load_PNet(scale_h,scale_w);
+	LoadPNet(scale_h,scale_w);
 
 	cv::resize(img, resized, cv::Size(scale_w, scale_h), 0, 0, cv::INTER_LINEAR);
 
@@ -284,7 +288,7 @@ void mxnet_mtcnn::run_PNet(const cv::Mat& img, scale_window& win, std::vector<fa
 
 }
 
-void mxnet_mtcnn::copy_one_patch(const cv::Mat& img,face_box&input_box,float * data_to, int height, int width)
+void MxNetMtcnn::CopyOnePatch(const cv::Mat& img,face_box&input_box,float * data_to, int height, int width)
 {
 	std::vector<cv::Mat> channels;
 	set_input_buffer(channels, data_to, height, width);
@@ -304,25 +308,25 @@ void mxnet_mtcnn::copy_one_patch(const cv::Mat& img,face_box&input_box,float * d
 	cv::split(chop_img, channels);
 }
 
-PredictorHandle mxnet_mtcnn::load_RNet(int batch)
+PredictorHandle MxNetMtcnn::LoadRNet(int batch)
 {
 	std::string param_file= model_dir_+"/det2-0001.params";
 	std::string json_file=model_dir_+"/det2-symbol.json";
 
-	return load_mxnet_model(param_file,json_file,batch,3,24,24);
+	return LoadMxNetModule(param_file,json_file,batch,3,24,24);
 }
 
 
-PredictorHandle mxnet_mtcnn::load_ONet(int batch)
+PredictorHandle MxNetMtcnn::LoadONet(int batch)
 {
 	std::string param_file= model_dir_+"/det3-0001.params";
 	std::string json_file=model_dir_+"/det3-symbol.json";
 
-	return load_mxnet_model(param_file,json_file,batch,3,48,48);
+	return LoadMxNetModule(param_file,json_file,batch,3,48,48);
 }
 
 
-void mxnet_mtcnn::run_RNet(const cv::Mat& img, std::vector<face_box>& pnet_boxes,std::vector<face_box>& output_boxes)
+void MxNetMtcnn::RunRNet(const cv::Mat& img, std::vector<face_box>& pnet_boxes,std::vector<face_box>& output_boxes)
 {
 	int batch=pnet_boxes.size();
 	int input_channel = 3;
@@ -330,9 +334,9 @@ void mxnet_mtcnn::run_RNet(const cv::Mat& img, std::vector<face_box>& pnet_boxes
 	int input_height = 24;
 	int input_size=batch*input_channel*input_width*input_height;
 
-	PredictorHandle rnet=load_RNet(batch);
+	PredictorHandle rnet = LoadRNet(batch);
 
-	if(rnet==nullptr)
+	if(rnet == nullptr)
 		return ;
 
 	/* load the data */
@@ -343,7 +347,7 @@ void mxnet_mtcnn::run_RNet(const cv::Mat& img, std::vector<face_box>& pnet_boxes
 	{
 		int patch_size=input_width*input_height*input_channel;
 
-		copy_one_patch(img,pnet_boxes[i], input_data,input_height,input_width);
+		CopyOnePatch(img,pnet_boxes[i], input_data,input_height,input_width);
 
 		input_data+=patch_size;
 	}
@@ -414,7 +418,7 @@ void mxnet_mtcnn::run_RNet(const cv::Mat& img, std::vector<face_box>& pnet_boxes
 	MXPredFree(rnet);
 }	
 
-void mxnet_mtcnn::run_ONet(const cv::Mat& img,std::vector<face_box>& rnet_boxes, std::vector<face_box>& output_boxes)
+void MxNetMtcnn::RunONet(const cv::Mat& img,std::vector<face_box>& rnet_boxes, std::vector<face_box>& output_boxes)
 {
 	int batch=rnet_boxes.size();
 	int input_channel = 3;
@@ -422,12 +426,10 @@ void mxnet_mtcnn::run_ONet(const cv::Mat& img,std::vector<face_box>& rnet_boxes,
 	int input_height = 48;
 	int input_size=batch*input_channel*input_width*input_height;
 
-
-	PredictorHandle onet=load_ONet(batch);
+	PredictorHandle onet = LoadONet(batch);
 
 	if(onet==nullptr)
 		return;
-
 
 	/* load the data */
 	std::vector<float> input(input_size);
@@ -437,7 +439,7 @@ void mxnet_mtcnn::run_ONet(const cv::Mat& img,std::vector<face_box>& rnet_boxes,
 	{
 		int patch_size=input_width*input_height*input_channel;
 
-		copy_one_patch(img,rnet_boxes[i],input_data,input_height,input_width);
+		CopyOnePatch(img,rnet_boxes[i],input_data,input_height,input_width);
 
 		input_data+=patch_size;
 	}
@@ -523,9 +525,8 @@ void mxnet_mtcnn::run_ONet(const cv::Mat& img,std::vector<face_box>& rnet_boxes,
 }
 
 
-int mxnet_mtcnn::run_preload_RNet(const cv::Mat& img, face_box& input_box,face_box& output_box )
+int MxNetMtcnn::RunPreLoadRNet(const cv::Mat& img, face_box& input_box,face_box& output_box )
 {
-
 	int input_channels = 3;
 	int input_width = 24;
 	int input_height = 24;
@@ -533,8 +534,7 @@ int mxnet_mtcnn::run_preload_RNet(const cv::Mat& img, face_box& input_box,face_b
 	std::vector<float> input(input_channels*input_width*input_height);
 
 
-	copy_one_patch(img,input_box,input.data(),input_height,input_width);
-
+	CopyOnePatch(img,input_box,input.data(),input_height,input_width);
 
 	MXPredSetInput(RNet_,"data",input.data(),input.size());		
 	MXPredForward(RNet_);
@@ -586,9 +586,7 @@ int mxnet_mtcnn::run_preload_RNet(const cv::Mat& img, face_box& input_box,face_b
 }	
 
 
-
-
-int mxnet_mtcnn::run_preload_ONet(const cv::Mat& img, face_box& input_box, face_box& output_box)
+int MxNetMtcnn::RunPreLoadONet(const cv::Mat& img, face_box& input_box, face_box& output_box)
 {
 	int input_channels = 3;
 	int input_width = 48;
@@ -596,8 +594,7 @@ int mxnet_mtcnn::run_preload_ONet(const cv::Mat& img, face_box& input_box, face_
 
 	std::vector<float> input(input_channels*input_width*input_height);
 
-
-	copy_one_patch(img,input_box,input.data(),input_height,input_width);
+	CopyOnePatch(img,input_box,input.data(),input_height,input_width);
 
 	MXPredSetInput(ONet_,"data",input.data(),input.size());		
 	MXPredForward(ONet_);
@@ -667,11 +664,11 @@ int mxnet_mtcnn::run_preload_ONet(const cv::Mat& img, face_box& input_box, face_
 
 
 
-static mtcnn * mxnet_creator(void)
+static Mtcnn * MxNetCreator(void)
 {
-	return new mxnet_mtcnn();
+	return new MxNetMtcnn();
 }
 
-REGISTER_MTCNN_CREATOR(mxnet,mxnet_creator);
+REGISTER_MTCNN_CREATOR(mxnet, MxNetCreator);
 
 

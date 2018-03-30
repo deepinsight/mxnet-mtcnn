@@ -15,7 +15,7 @@
 */
 #include "mtcnn.hpp"
 
-typedef std::map<std::string, mtcnn_factory::creator> creator_map;
+typedef std::map<std::string, MtcnnFactory::creator> creator_map;
 
 static creator_map& get_registery(void)
 {
@@ -24,14 +24,14 @@ static creator_map& get_registery(void)
 	return *instance_ptr;
 }
 
-void mtcnn_factory::register_creator(const std::string& name, creator& create_func)
+void MtcnnFactory::RegisterCreator(const std::string& name, creator& create_func)
 {
 	creator_map& registery=get_registery();
 
 	registery[name]=create_func;
 }
 
-std::vector<std::string> mtcnn_factory::list(void)
+std::vector<std::string> MtcnnFactory::ListDetectorType(void)
 {
 	std::vector<std::string> ret;
 
@@ -49,9 +49,8 @@ std::vector<std::string> mtcnn_factory::list(void)
 }
 
 
-mtcnn * mtcnn_factory::create_detector(const std::string& name)
+Mtcnn * MtcnnFactory::CreateDetector(const std::string& name)
 {
-
 	creator_map& registery=get_registery();
 
 	if(registery.find(name)== registery.end())
@@ -61,3 +60,4 @@ mtcnn * mtcnn_factory::create_detector(const std::string& name)
 
 	return func();
 }
+

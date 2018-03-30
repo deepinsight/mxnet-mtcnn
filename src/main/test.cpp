@@ -23,8 +23,9 @@
 
 int main(int argc, char * argv[])
 {
-    const char *type = "mxnet";
-    const char *fname = "test.jpg";
+    std::string type = "mxnet";
+    std::string fname = "test.jpg";
+    std::string model_dir = "../models";    
     int save_chop = 0;
 
     int res;
@@ -32,10 +33,12 @@ int main(int argc, char * argv[])
     while ((res = getopt(argc,argv,"f:t:s")) != -1) {
         switch (res) {
             case 'f':
-                fname = optarg;
+                fname = std::string(optarg);
                 break;
+            case 'm':
+                model_dir = std::string(optarg);
             case 't':
-                type = optarg;
+                type = std::string(optarg);
                 break;
             case 's':
                 save_chop = 1;
@@ -52,16 +55,14 @@ int main(int argc, char * argv[])
         return 1;
     }
 
-    std::string model_dir = "../models";
     std::vector<face_box> face_info;
 
-
-    mtcnn * p_mtcnn = mtcnn_factory::create_detector(type);
+    Mtcnn * p_mtcnn = MtcnnFactory::CreateDetector(type);
 
     if (p_mtcnn == nullptr) {
         std::cerr << type << " is not supported" << std::endl;
         std::cerr << "supported types: ";
-        std::vector<std::string> type_list = mtcnn_factory::list();
+        std::vector<std::string> type_list = MtcnnFactory::ListDetectorType();
 
         for (unsigned int i = 0; i < type_list.size(); i++)
             std::cerr << " " << type_list[i];
@@ -71,11 +72,11 @@ int main(int argc, char * argv[])
         return 1;
     }
 
-    p_mtcnn->load_model(model_dir);
+    p_mtcnn->LoadModule(model_dir);
 
     unsigned long start_time = get_cur_time();
 
-    p_mtcnn->detect(frame,face_info);
+    p_mtcnn->Detect(frame,face_info);
 
     unsigned long end_time = get_cur_time();
 
@@ -91,13 +92,15 @@ int main(int argc, char * argv[])
 
         printf("\n");
 
-        // if (save_chop) {
-        //     cv::Mat corp_img=frame(cv::Range(box.y0,box.y1),
-        //             cv::Range(box.x0,box.x1));
-        //     char title[128];
-        //     sprintf(title,"id%d.jpg",i);
-        //     cv::imwrite(title,corp_img);
-        // }
+        if (save_chop) {
+            cv::Mat corp_img=frame(cv::Range(box.y0,box.y1),
+                    cv::Range(box.x0,box.x1));
+            char title[128];
+            sprintf(title,"id%d.jpg",i);
+            std::string fname;
+            
+            cv::imwrite(title,corp_img);
+        }
 
         /*draw box */
         cv::rectangle(frame, cv::Point(box.x0, box.y0), cv::Point(box.x1, box.y1), cv::Scalar(0, 255, 0), 1);
@@ -114,5 +117,6 @@ int main(int argc, char * argv[])
     std::cout<<"total detected: "<<face_info.size()<<" faces. used "<<(end_time-start_time)<<" us"<<std::endl;
 
     cv::waitKey(0);
+
     return 0;
 }

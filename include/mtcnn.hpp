@@ -38,9 +38,9 @@ struct face_box
 
 
 
-class mtcnn {
+class Mtcnn {
 	public:
-		mtcnn(void){
+		Mtcnn(void){
 			min_size_=40;
 			pnet_threshold_=0.6;
 			rnet_threshold_=0.7;
@@ -49,23 +49,23 @@ class mtcnn {
 
 		}
 
-		void set_threshold(float p, float r, float o)
+		void SetThreshold(float p, float r, float o)
 		{
 			pnet_threshold_=p;
 			rnet_threshold_=r;
 			onet_threshold_=o;
 		}
 
-		void set_factor_min_size(float factor, float min_size)
+		void SetFactorMinSize(float factor, float min_size)
 		{
 			factor_=factor;
 			min_size_=min_size;   
 		}
 
 
-		virtual int load_model(const std::string& model_dir)=0;
-		virtual void detect(cv::Mat& img, std::vector<face_box>& face_list)=0;
-		virtual ~mtcnn(void){};
+		virtual int LoadModule(const std::string& model_dir)=0;
+		virtual void Detect(cv::Mat& img, std::vector<face_box>& face_list)=0;
+		virtual ~Mtcnn(void){};
 
 	protected:
 
@@ -78,29 +78,33 @@ class mtcnn {
 
 /* factory part */
 
-class mtcnn_factory
+class MtcnnFactory
 {
 	public:
 
-		typedef mtcnn * (*creator)(void);
+		typedef Mtcnn * (*creator)(void);
 
-		static void register_creator(const std::string& name, creator& create_func);
-		static mtcnn * create_detector(const std::string& name);
-        static std::vector<std::string> list(void);
+		static void RegisterCreator(const std::string& name, creator& create_func);
+
+		static Mtcnn * CreateDetector(const std::string& name);
+
+        static std::vector<std::string> ListDetectorType(void);
+
+		static void DestroyDetector(const std::string& name);
 
 	private:
-		mtcnn_factory(){};
+		MtcnnFactory(){};
 };
 
 class  only_for_auto_register
 {
 	public:
-		only_for_auto_register(std::string name, mtcnn_factory::creator func)
+		only_for_auto_register(std::string name, MtcnnFactory::creator func)
 		{
 			std::cout<<1<<"\n"<<name;
 			if(func == NULL)
 					std::cout<<"func null\n";
-			mtcnn_factory::register_creator(name,func);
+			MtcnnFactory::RegisterCreator(name,func);
 		}
 
 };

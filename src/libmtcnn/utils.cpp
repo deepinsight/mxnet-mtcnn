@@ -96,3 +96,16 @@ void save_img(const char * name, void * p_img)
 
 	of.close();
 }
+
+
+std::vector<std::string> str_split(const std::string& s, const char& delimiter)
+{
+	std::vector<std::string> tokens;
+	std::string token;
+	std::istringstream tokenStream(s);
+	while (std::getline(tokenStream, token, delimiter)) {
+		tokens.push_back(token);
+	}
+	
+	return tokens;
+}

@@ -9,7 +9,7 @@ link_directories(${PROJECT_SOURCE_DIR}/lib ${PROJECT_SOURCE_DIR}/3rdparty/lib)
 
 
 # test picture execute file
-add_executable(test_picture test.cpp)
+add_executable(test_picture test_picture.cpp)
 target_link_libraries(test_picture mtcnn ${OpenCV_LIBS})
 set_target_properties(test_picture
         PROPERTIES
@@ -19,7 +19,7 @@ set_target_properties(test_picture
 )
 
 # test camera execute file
-add_executable(test_camera camera.cpp)
+add_executable(test_camera test_camera.cpp)
 target_link_libraries(test_camera mtcnn ${OpenCV_LIBS})
 set_target_properties(test_camera
         PROPERTIES 

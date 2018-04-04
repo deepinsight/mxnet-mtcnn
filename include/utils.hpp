@@ -1,6 +1,9 @@
 #ifndef __MTCNN_UTILS_HPP__
 #define __MTCNN_UTILS_HPP__
 
+#include <string>
+#include <vector>
+
 /* get current time: in us */
 unsigned long get_cur_time(void);
 
@@ -15,6 +18,7 @@ void save_img(const char * name,void * p_img );
 
 void save_float(const char * name, const float * data, int size);
 
+std::vector<std::string> str_split(const std::string& s, const char& delimiter);
 
 #endif
 

@@ -31,12 +31,8 @@ int main(int argc, char * argv[])
 {
     std::string type = "mxnet";
     std::string model_dir = "../models";
-    
-    double ftick, etick;
-    double ticksPerUs;
 
     int res;
-
     while ((res = getopt(argc, argv, "t:")) != -1) {
         switch (res) {
             case 't':
@@ -73,12 +69,14 @@ int main(int argc, char * argv[])
         return 1;
     }
 
-    ticksPerUs = cv::getTickFrequency() / 1000000;
-
     p_mtcnn->LoadModule(model_dir);
+
     cv::namedWindow(DISP_WINNANE, cv::WINDOW_AUTOSIZE);
     cv::Mat frame;
+
     std::vector<face_box> face_info;
+    unsigned long start_time = 0;
+    unsigned long end_time = 0;
 
     do {
             camera >> frame;
@@ -88,28 +86,31 @@ int main(int argc, char * argv[])
                 break;
             }
 
-            ftick = cv::getCPUTickCount();
+            start_time = get_cur_time();
             p_mtcnn->Detect(frame, face_info);
-            etick = cv::getCPUTickCount();
-
+            end_time = get_cur_time();
+            
             for (unsigned int i = 0; i < face_info.size(); i++) {
                 face_box & box = face_info[i];
 
                 /*draw box */
                 cv::rectangle(frame, cv::Point(box.x0, box.y0),
-                        cv::Point(box.x1, box.y1), cv::Scalar(0, 255, 0), 1);
+                        cv::Point(box.x1, box.y1), cv::Scalar(0, 255, 0), 2);
 
                 /* draw landmark */
                 for (int l = 0; l < 5; l++) {
                     cv::circle(frame, cv::Point(box.landmark.x[l],
-                        box.landmark.y[l]), 1, cv::Scalar(0, 0, 255), 1.8);
+                        box.landmark.y[l]), 2, cv::Scalar(0, 0, 255), 2);
                 }
             }
 
-            std::cout<<"total detected: "<<face_info.size()<<" faces. used "<<(etick - ftick)/ticksPerUs<<" us"<<std::endl;
+            std::cout<< "total detected: " << face_info.size() << " faces. used "
+            << (end_time-start_time) << " us" << std::endl;
 
             cv::imshow(DISP_WINNANE, frame);
+
             face_info.clear();
+
     } while (QUIT_KEY != cv::waitKey(1));
 
     return 0;

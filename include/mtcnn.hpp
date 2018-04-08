@@ -101,7 +101,7 @@ class  only_for_auto_register
 	public:
 		only_for_auto_register(std::string name, MtcnnFactory::creator func)
 		{
-			std::cout<<1<<"\n"<<name;
+			std::cout<<1<<"\n"<<name << std::endl;
 			if(func == NULL)
 					std::cout<<"func null\n";
 			MtcnnFactory::RegisterCreator(name,func);
@@ -109,6 +109,7 @@ class  only_for_auto_register
 
 };
 
+// TODO: remove the implementation
 #define REGISTER_MTCNN_CREATOR(name,func) \
 	 static only_for_auto_register __attribute__((used)) dummy_mtcnn_creator_## name (#name, func)
 

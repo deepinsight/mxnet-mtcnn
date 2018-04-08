@@ -21,10 +21,11 @@
 #include <vector>
 #include "mtcnn.hpp"
 #include "mxnet_mtcnn.hpp"
+#include "utils.hpp"
 
 
 static int LoadFile(const std::string & fname, std::vector<char>& buf)
-{
+{	
 	std::ifstream fs(fname, std::ios::binary | std::ios::in);
 
 	if(!fs.good())
@@ -153,27 +154,42 @@ void MxNetMtcnn::Detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 
 	cal_pyramid_list(img_h,img_w,min_size_,factor_,win_list);
 
+	std::cout << "win list size: " << win_list.size() << std::endl;
+	std::cout << "====Run PNet====" << std::endl;
+
+	unsigned long start_time = get_cur_time();
+	// TODO: can use multiple thread ??
 	for(int i=0;i<win_list.size();i++)
 	{
+		std::cout << "scale window. height: " << win_list[i].h << " width: " << win_list[i].w << std::endl;
 		std::vector<face_box>boxes;
 
 		RunPNet(img,win_list[i],boxes);
 
 		total_pnet_boxes.insert(total_pnet_boxes.end(),boxes.begin(),boxes.end());
 	}
+	unsigned long end_time = get_cur_time();
+	std::cout << "====Run PNet time eclipsed: " << end_time - start_time << " us" << std::endl;
 
 
 	std::vector<face_box> pnet_boxes;
 
+	start_time = get_cur_time();
 	process_boxes(total_pnet_boxes,img_h,img_w,pnet_boxes);
+	end_time = get_cur_time();
+	std::cout << "====Run Process PNet Boxes time eclipsed: " << end_time - start_time << " us" << std::endl;
 
+    if(pnet_boxes.size()==0)
+        return;
 
-        if(pnet_boxes.size()==0)
-            return;
+	std::cout << "PNet boxes size: " << pnet_boxes.size() << " RNet batch bound: " << rnet_batch_bound_ << std::endl;
+
+	start_time = get_cur_time();
 
 	if(pnet_boxes.size()>rnet_batch_bound_)
 	{
 		//batch mode
+		std::cout << "===Run RNet====" << std::endl;
 		RunRNet(img,pnet_boxes,total_rnet_boxes);
 
 	}
@@ -183,6 +199,8 @@ void MxNetMtcnn::Detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 		{
 			face_box out_box;
 
+			std::cout << "===Run PreLoadRNet====" << std::endl;
+			
 			if(RunPreLoadRNet(img, pnet_boxes[i],out_box)<0)
 				continue;
 
@@ -191,15 +209,28 @@ void MxNetMtcnn::Detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 		}
 	}
 
+	end_time = get_cur_time();
+
+	std::cout << "====Run RNet time eclipsed: " << end_time - start_time << " us" << std::endl;
+
 
 	std::vector<face_box> rnet_boxes;
+	start_time = get_cur_time();		
 	process_boxes(total_rnet_boxes,img_h,img_w,rnet_boxes);
+	end_time = get_cur_time();
+	std::cout << "====Run Process RNet Boxes time eclipsed: " << end_time - start_time << " us" << std::endl;
 
-        if(rnet_boxes.size()==0)
-             return;
+	std::cout << "RNet boxes size: " << rnet_boxes.size() << " ONet batch bound: " << onet_batch_bound_ << std::endl;
+
+    if(rnet_boxes.size()==0)
+        return;
+
+	start_time = get_cur_time();
 
 	if(rnet_boxes.size()>onet_batch_bound_)
 	{
+		std::cout << "===Run ONet====" << std::endl;
+		
 		RunONet(img,rnet_boxes, total_onet_boxes);
 	}
 	else
@@ -208,6 +239,8 @@ void MxNetMtcnn::Detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 		{
 			face_box out_box;
 
+			std::cout << "===Run PreLoadONet====" << std::endl;
+			
 			if(RunPreLoadONet(img, rnet_boxes[i],out_box)<0)
 				continue;
 
@@ -216,14 +249,22 @@ void MxNetMtcnn::Detect(cv::Mat& orig_img, std::vector<face_box>& face_list)
 		}
 	}
 
+	end_time = get_cur_time();
+
+	std::cout << "====Run ONet time eclipsed: " << end_time - start_time << " us" << std::endl;
 
 	//calculate the landmark
+	start_time = get_cur_time();
 	cal_landmark(total_onet_boxes);
-
+	end_time = get_cur_time();
+	std::cout << "====Run LandMark time eclipsed: " << end_time - start_time << " us" << std::endl;
 
 	//Get Final Result
+	start_time = get_cur_time();	
 	regress_boxes(total_onet_boxes);
 	nms_boxes(total_onet_boxes, 0.7, NMS_MIN,face_list);
+	end_time = get_cur_time();
+	std::cout << "====Run nmsbox time eclipsed: " << end_time - start_time << " us" << std::endl;
 
 }
 
@@ -238,8 +279,6 @@ void MxNetMtcnn::RunPNet(const cv::Mat& img, scale_window& win, std::vector<face
 	LoadPNet(scale_h,scale_w);
 
 	cv::resize(img, resized, cv::Size(scale_w, scale_h), 0, 0, cv::INTER_LINEAR);
-
-
 
 	std::vector<float> input(3*scale_h*scale_w);
 
@@ -274,8 +313,8 @@ void MxNetMtcnn::RunPNet(const cv::Mat& img, scale_window& win, std::vector<face
 	std::vector<float> reg(reg_size);
 	std::vector<float> confidence(confidence_size);
 
-	MXPredGetOutput(PNet_,0,reg.data(),reg_size);
-	MXPredGetOutput(PNet_,1,confidence.data(),confidence_size);
+	MXPredGetOutput(PNet_,0, reg.data(), reg_size);
+	MXPredGetOutput(PNet_,1, confidence.data(), confidence_size);
 
 
 	std::vector<face_box>  candidate_boxes;
@@ -325,7 +364,6 @@ PredictorHandle MxNetMtcnn::LoadONet(int batch)
 	return LoadMxNetModule(param_file,json_file,batch,3,48,48);
 }
 
-
 void MxNetMtcnn::RunRNet(const cv::Mat& img, std::vector<face_box>& pnet_boxes,std::vector<face_box>& output_boxes)
 {
 	int batch=pnet_boxes.size();
@@ -351,8 +389,6 @@ void MxNetMtcnn::RunRNet(const cv::Mat& img, std::vector<face_box>& pnet_boxes,s
 
 		input_data+=patch_size;
 	}
-
-
 
 	MXPredSetInput(rnet,"data",input.data(),input_size);		
 	MXPredForward(rnet);
@@ -416,114 +452,7 @@ void MxNetMtcnn::RunRNet(const cv::Mat& img, std::vector<face_box>& pnet_boxes,s
 	}
 
 	MXPredFree(rnet);
-}	
-
-void MxNetMtcnn::RunONet(const cv::Mat& img,std::vector<face_box>& rnet_boxes, std::vector<face_box>& output_boxes)
-{
-	int batch=rnet_boxes.size();
-	int input_channel = 3;
-	int input_width = 48;
-	int input_height = 48;
-	int input_size=batch*input_channel*input_width*input_height;
-
-	PredictorHandle onet = LoadONet(batch);
-
-	if(onet==nullptr)
-		return;
-
-	/* load the data */
-	std::vector<float> input(input_size);
-	float * input_data=input.data();
-
-	for(int i=0;i<batch;i++)
-	{
-		int patch_size=input_width*input_height*input_channel;
-
-		CopyOnePatch(img,rnet_boxes[i],input_data,input_height,input_width);
-
-		input_data+=patch_size;
-	}
-
-
-	MXPredSetInput(onet,"data",input.data(),input.size());		
-	MXPredForward(onet);
-
-	mx_uint *shape = NULL;
-	mx_uint shape_len = 0;
-
-	MXPredGetOutputShape(onet,1,&shape,&shape_len);
-	int reg_size=1;
-
-	for(unsigned int i=0;i<shape_len;i++)
-		reg_size*=shape[i];
-
-	MXPredGetOutputShape(onet,0,&shape,&shape_len);
-	int points_size=1;
-
-	for(unsigned int i=0;i<shape_len;i++)
-		points_size*=shape[i];
-
-	MXPredGetOutputShape(onet,2,&shape,&shape_len);
-	int confidence_size=1;
-
-	for(unsigned int i=0;i<shape_len;i++)
-		confidence_size*=shape[i];
-
-	std::vector<float> reg(reg_size);
-	std::vector<float> points(points_size);
-	std::vector<float> confidence(confidence_size);
-
-	MXPredGetOutput(onet,0,points.data(),points_size);
-	MXPredGetOutput(onet,1,reg.data(),reg_size);
-	MXPredGetOutput(onet,2,confidence.data(),confidence_size);
-
-
-	const float* confidence_data = confidence.data();
-	const float* reg_data = reg.data();
-	const float* points_data=points.data();
-
-
-	int reg_page_size=reg_size/batch;
-	int confidence_page_size=confidence_size/batch;
-	int points_page_size=points_size/batch;
-
-
-	for(int i=0;i<batch;i++)
-	{
-
-		if (*(confidence_data+1) > onet_threshold_){
-
-			face_box output_box;
-			face_box & input_box=rnet_boxes[i];
-
-			output_box.x0=input_box.x0;
-			output_box.y0=input_box.y0;
-			output_box.x1=input_box.x1;
-			output_box.y1=input_box.y1;
-
-			output_box.score=*(confidence_data+1);
-
-			output_box.regress[0]=reg_data[0];
-			output_box.regress[1]=reg_data[1];
-			output_box.regress[2]=reg_data[2];
-			output_box.regress[3]=reg_data[3];
-
-
-			for (int j = 0; j<5; j++){
-				output_box.landmark.x[j] = *(points_data + j); 
-				output_box.landmark.y[j] = *(points_data + j + 5);
-			}
-
-			output_boxes.push_back(output_box);
-		}
-
-		reg_data+=reg_page_size;
-		confidence_data+=confidence_page_size;
-		points_data+=points_page_size;
-
-	}
 }
-
 
 int MxNetMtcnn::RunPreLoadRNet(const cv::Mat& img, face_box& input_box,face_box& output_box )
 {
@@ -533,7 +462,6 @@ int MxNetMtcnn::RunPreLoadRNet(const cv::Mat& img, face_box& input_box,face_box&
 
 	std::vector<float> input(input_channels*input_width*input_height);
 
-
 	CopyOnePatch(img,input_box,input.data(),input_height,input_width);
 
 	MXPredSetInput(RNet_,"data",input.data(),input.size());		
@@ -542,7 +470,7 @@ int MxNetMtcnn::RunPreLoadRNet(const cv::Mat& img, face_box& input_box,face_box&
 	mx_uint *shape = NULL;
 	mx_uint shape_len = 0;
 
-	MXPredGetOutputShape(RNet_,0,&shape,&shape_len);
+	MXPredGetOutputShape(RNet_, 0, &shape, &shape_len);
 	int reg_size=1;
 
 	for(unsigned int i=0;i<shape_len;i++)
@@ -660,8 +588,113 @@ int MxNetMtcnn::RunPreLoadONet(const cv::Mat& img, face_box& input_box, face_box
 
 	return -1;
 
-}	
+}
 
+void MxNetMtcnn::RunONet(const cv::Mat& img,std::vector<face_box>& rnet_boxes, std::vector<face_box>& output_boxes)
+{
+	int batch=rnet_boxes.size();
+	int input_channel = 3;
+	int input_width = 48;
+	int input_height = 48;
+	int input_size=batch*input_channel*input_width*input_height;
+
+	PredictorHandle onet = LoadONet(batch);
+
+	if(onet==nullptr)
+		return;
+
+	/* load the data */
+	std::vector<float> input(input_size);
+	float * input_data=input.data();
+
+	for(int i=0;i<batch;i++)
+	{
+		int patch_size=input_width*input_height*input_channel;
+
+		CopyOnePatch(img,rnet_boxes[i],input_data,input_height,input_width);
+
+		input_data+=patch_size;
+	}
+
+
+	MXPredSetInput(onet,"data",input.data(),input.size());		
+	MXPredForward(onet);
+
+	mx_uint *shape = NULL;
+	mx_uint shape_len = 0;
+
+	MXPredGetOutputShape(onet,1,&shape,&shape_len);
+	int reg_size=1;
+
+	for(unsigned int i=0;i<shape_len;i++)
+		reg_size*=shape[i];
+
+	MXPredGetOutputShape(onet,0,&shape,&shape_len);
+	int points_size=1;
+
+	for(unsigned int i=0;i<shape_len;i++)
+		points_size*=shape[i];
+
+	MXPredGetOutputShape(onet,2,&shape,&shape_len);
+	int confidence_size=1;
+
+	for(unsigned int i=0;i<shape_len;i++)
+		confidence_size*=shape[i];
+
+	std::vector<float> reg(reg_size);
+	std::vector<float> points(points_size);
+	std::vector<float> confidence(confidence_size);
+
+	MXPredGetOutput(onet,0,points.data(),points_size);
+	MXPredGetOutput(onet,1,reg.data(),reg_size);
+	MXPredGetOutput(onet,2,confidence.data(),confidence_size);
+
+
+	const float* confidence_data = confidence.data();
+	const float* reg_data = reg.data();
+	const float* points_data=points.data();
+
+
+	int reg_page_size=reg_size/batch;
+	int confidence_page_size=confidence_size/batch;
+	int points_page_size=points_size/batch;
+
+
+	for(int i=0;i<batch;i++)
+	{
+
+		if (*(confidence_data+1) > onet_threshold_){
+
+			face_box output_box;
+			face_box & input_box=rnet_boxes[i];
+
+			output_box.x0=input_box.x0;
+			output_box.y0=input_box.y0;
+			output_box.x1=input_box.x1;
+			output_box.y1=input_box.y1;
+
+			output_box.score=*(confidence_data+1);
+
+			output_box.regress[0]=reg_data[0];
+			output_box.regress[1]=reg_data[1];
+			output_box.regress[2]=reg_data[2];
+			output_box.regress[3]=reg_data[3];
+
+
+			for (int j = 0; j<5; j++){
+				output_box.landmark.x[j] = *(points_data + j); 
+				output_box.landmark.y[j] = *(points_data + j + 5);
+			}
+
+			output_boxes.push_back(output_box);
+		}
+
+		reg_data+=reg_page_size;
+		confidence_data+=confidence_page_size;
+		points_data+=points_page_size;
+
+	}
+}
 
 
 static Mtcnn * MxNetCreator(void)

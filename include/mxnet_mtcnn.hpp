@@ -7,6 +7,7 @@
 #include "mtcnn.hpp"
 #include "mxnet/c_predict_api.h"
 #include "comm_lib.hpp"
+#include "buffer_file.hpp"
 
 class MxNetMtcnn: public Mtcnn {
 
@@ -31,6 +32,7 @@ class MxNetMtcnn: public Mtcnn {
 		void FreePNet(void);
 		
         void CopyOnePatch(const cv::Mat& img,face_box&input_box,float * data_to, int width, int height);
+        PredictorHandle LoadPNet(int batch);		
         PredictorHandle LoadRNet(int batch);
         PredictorHandle LoadONet(int batch);
 

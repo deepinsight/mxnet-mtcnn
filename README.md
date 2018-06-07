@@ -25,6 +25,9 @@ cmake -DUSE_CUDA=0 ..
 ## Run
 
 ### run picture
+```sh
+bin/test_picture -f <photo> -m models
+```
 
 ### run camera
 If the basic work is ready (build caffe/Mxnet/Tensorflow sucessfully) followed by above steps. You can run the test now.

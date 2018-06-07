@@ -55,7 +55,6 @@ int main(int argc, char * argv[])
     }
 
 
-
     //cv::namedWindow(fpath, cv::WINDOW_AUTOSIZE);
 
 
@@ -76,21 +75,21 @@ int main(int argc, char * argv[])
 
     p_mtcnn->LoadModule(model_dir);
 
+    // read image
+    cv::Mat frame = cv::imread(fpath);
+    if (!frame.data) {
+        std::cerr << "failed to read image file: " << fpath << std::endl;
+        exit(1);
+    }
+
     int cycle = 0;
     while( cycle++ < 1) {
 
-        // read image
-        cv::Mat frame = cv::imread(fpath);
-        if (!frame.data) {
-            std::cerr << "failed to read image file: " << fpath << std::endl;
-            exit(1);
-        }
         std::vector<face_box> face_info;    
         unsigned long start_time = get_cur_time();
         p_mtcnn->Detect(frame,face_info);
         unsigned long end_time = get_cur_time();
 
-        /**
         for(unsigned int i = 0; i < face_info.size(); i++) {
             face_box& box = face_info[i];
             std::ostringstream oss;
@@ -125,15 +124,13 @@ int main(int argc, char * argv[])
             }
         }
 
-        */
-
         std::cout << "total detected: " << face_info.size() << " faces. used "
              << (end_time-start_time) << " us" << std::endl;
 
     }
  
-    //cv::imshow(fpath, frame);
-    //cv::waitKey(0);
+    cv::imshow(fpath, frame);
+    cv::waitKey(0);
 
     return 0;
 }

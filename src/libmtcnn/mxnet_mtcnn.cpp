@@ -324,6 +324,8 @@ void MxNetMtcnn::RunPNet(const cv::Mat& img, scale_window& win, std::vector<face
 
 	generate_bounding_box(confidence.data(),confidence.size(), reg.data(), scale, pnet_threshold_, feature_h, feature_w, candidate_boxes,false);
 	nms_boxes(candidate_boxes, 0.5, NMS_UNION,box_list);
+	
+	FreePNet();
 
 }
 
